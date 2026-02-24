@@ -1,9 +1,8 @@
-#include <esp32_w5500.h>
+/*esp32_w5500ライブラリ
+ * esp32のipは、192.168.10.esp32_idとする
+ * 待ち受けるポートは8888とする*/
 
-struct __attribute__((packed)) PacketData {
-    uint32_t time_ms;
-    uint32_t motor_id;
-};
+#include <esp32_w5500.h>
 
 void init_w5500(int esp32_id, EthernetUDP *udp)
 {
@@ -19,18 +18,27 @@ void init_w5500(int esp32_id, EthernetUDP *udp)
     udp->begin(8888); // 8888 is localport
 }
 
-void receive_packet()
+bool receive_packet(EthernetUDP *udp, RxPacket *packet)
 {
-    if (packet_size) {
-        if (packet_size == sizeof(SensorData)) {
-            SensorData packet;
-            udp.read((uint8_t *)&packet, sizeof(SensorData));
-            Serial.println(packet.motor_id);
-        } else {
-            char flush_buf[256];
-            udp.read(flush_buf, 256);
-        }
+    int packet_size = udp->parsePacket();
+
+    if (packet_size == 0) {
+        return false;
     }
+
+    if (packet_size != sizeof(RxPacket)) {
+        char flush_buf[256];
+        udp->read(flush_buf, 256);
+        return false;
+    }
+
+    udp->read((uint8_t *)&packet, sizeof(RxPacket));
 }
 
-void send_packet();
+void send_packet(TxPacket *packet, EthernetUDP *udp, int pc_ip)
+{
+    pc_port = 12345;
+    udp->beginPacket(pc_ip, pc_port);
+    udp->write((const uint8_t *)packet, sizeof(TxPacket));
+    udp->endPacket();
+}
